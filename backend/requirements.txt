@@ -1,0 +1,17 @@
+
+fastapi==0.115.12
+uvicorn[standard]==0.34.2
+SQLAlchemy==2.0.55
+PyMySQL==1.1.1
+pydantic==2.14.2
+pydantic-settings==2.9.1
+python-jose[cryptography]==3.4.0
+passlib[bcrypt]==1.7.4
+bcrypt==4.0.1
+email-validator==2.2.0
+alembic==1.15.2
+python-multipart==0.0.20
+requests==2.32.3
+
+pandas==2.3.3
+openpyxl==3.1.5

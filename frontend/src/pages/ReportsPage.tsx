@@ -1,0 +1,20 @@
+import { useCallback, useEffect, useState } from "react";
+import { Alert, Box, Button, Chip, CircularProgress, Paper, Stack, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Typography } from "@mui/material";
+import { DownloadRounded, RefreshRounded, AssessmentRounded } from "@mui/icons-material";
+import api from "../api/client";
+type Run={id:number;period:string;status:string;created_at:string|null;summary:Record<string,number>;total_books_records:number;total_portal_records:number};
+const period=(p:string)=>/^\d{6}$/.test(p)?new Date(Number(p.slice(2)),Number(p.slice(0,2))-1,1).toLocaleDateString("en-IN",{month:"long",year:"numeric"}):p;
+const date=(d:string|null)=>d?new Date(d).toLocaleString("en-IN"):"—";
+export default function ReportsPage(){
+ const [runs,setRuns]=useState<Run[]>([]),[loading,setLoading]=useState(true),[error,setError]=useState(""),[downloading,setDownloading]=useState<number|null>(null);
+ const load=useCallback(async()=>{setLoading(true);setError("");try{const {data}=await api.get<Run[]>("/reconciliation/runs");setRuns(data||[]);}catch(e:any){setError(e.response?.data?.detail||"Unable to load reconciliation reports.");}finally{setLoading(false);}},[]);
+ useEffect(()=>{void load();},[load]);
+ const exportRun=async(id:number)=>{setDownloading(id);setError("");try{const response=await api.get(`/reconciliation/runs/${id}/export`,{responseType:"blob",timeout:120000});const url=URL.createObjectURL(response.data);const a=document.createElement("a");a.href=url;a.download=`GST_Reconciliation_Run_${id}.xlsx`;document.body.appendChild(a);a.click();a.remove();URL.revokeObjectURL(url);}catch(e:any){setError("Could not download this report. Please try again.");}finally{setDownloading(null);}};
+ return <Box><Typography className="eyebrow">RECONCILIATION OUTPUTS</Typography><Stack direction={{xs:"column",sm:"row"}} justifyContent="space-between" alignItems={{sm:"center"}} spacing={2} sx={{mb:2}}><Box><Typography variant="h4" fontWeight={800}>Reports</Typography><Typography color="text.secondary" fontSize={13}>Review completed reconciliation runs and download their Excel reports.</Typography></Box><Button variant="outlined" startIcon={<RefreshRounded/>} onClick={()=>void load()} disabled={loading}>Refresh</Button></Stack>
+ {error&&<Alert severity="error" sx={{mb:2}}>{error}</Alert>}
+ <Paper className="panel" elevation={0}>
+  <Stack direction="row" spacing={1} alignItems="center" sx={{mb:2}}><AssessmentRounded color="primary"/><Box><Typography fontWeight={800}>Reconciliation reports</Typography><Typography color="text.secondary" fontSize={12}>{runs.length} recent runs available</Typography></Box></Stack>
+  {loading?<Box sx={{py:5,textAlign:"center"}}><CircularProgress/></Box>:runs.length===0?<Alert severity="info">No reconciliation runs found. Import both workbooks and run reconciliation to generate your first report.</Alert>:
+  <TableContainer><Table size="small"><TableHead><TableRow>{["Run","Return period","Books rows","Portal rows","Matched","Needs review","Created","Report"].map(x=><TableCell key={x} sx={{fontWeight:800,whiteSpace:"nowrap"}}>{x}</TableCell>)}</TableRow></TableHead><TableBody>{runs.map(r=>{const s=r.summary||{};const review=(s.missing_in_portal||0)+(s.missing_in_books||0)+(s.taxable_mismatch||0)+(s.tax_mismatch||0)+(s.taxable_and_tax_mismatch||0)+(s.date_mismatch||0)+(s.duplicates||0);return <TableRow key={r.id} hover><TableCell>#{r.id}</TableCell><TableCell>{period(r.period)}</TableCell><TableCell>{r.total_books_records}</TableCell><TableCell>{r.total_portal_records}</TableCell><TableCell>{s.matched??0}</TableCell><TableCell><Chip size="small" label={review} color={review?"warning":"success"}/></TableCell><TableCell sx={{whiteSpace:"nowrap"}}>{date(r.created_at)}</TableCell><TableCell><Button size="small" variant="outlined" startIcon={downloading===r.id?<CircularProgress size={14}/>:<DownloadRounded/>} disabled={downloading!==null||r.status!=="COMPLETED"} onClick={()=>void exportRun(r.id)}>Excel</Button></TableCell></TableRow>})}</TableBody></Table></TableContainer>}
+ </Paper></Box>;
+}
